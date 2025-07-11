@@ -1,0 +1,172 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql_db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    command: --default-authentication-plugin=mysql_native_password --innodb_lock_wait_timeout=120
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+      interval: 3s
+    networks:
+      - app_network
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis_cache
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq_broker
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  user-service:
+    build:
+      context: ./backend/user-service
+      dockerfile: Dockerfile
+    container_name: user_service
+    ports:
+      - "${PORT_USER_SERVICE}:${PORT_USER_SERVICE}"
+    environment: 
+      DB_HOST: mysql 
+      DB_USER: ${USER_SERVICE_DB_USER}
+      DB_PASSWORD: ${USER_SERVICE_DB_PASSWORD}
+      DB_NAME: ${USER_SERVICE_DB_NAME}
+      DB_PORT: ${USER_SERVICE_DB_PORT}
+      JWT_SECRET: ${USER_SERVICE_JWT_SECRET}
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${USER_SERVICE_REDIS_PASSWORD}
+      PORT: ${PORT_USER_SERVICE} 
+    volumes: 
+      - ./scripts/wait-for-it.sh:/usr/local/bin/wait-for-it.sh
+    command: /usr/local/bin/wait-for-it.sh mysql 3306 -- ./user-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - app_network
+
+  booking-service:
+    build:
+      context: ./backend/booking-service
+      dockerfile: Dockerfile
+    container_name: booking_service
+    ports:
+      - "${PORT_BOOKING_SERVICE}:${PORT_BOOKING_SERVICE}"
+    environment:
+      DB_HOST: mysql
+      DB_USER: ${BOOKING_SERVICE_DB_USER}
+      DB_PASSWORD: ${BOOKING_SERVICE_DB_PASSWORD}
+      DB_NAME: ${BOOKING_SERVICE_DB_NAME}
+      DB_PORT: ${BOOKING_SERVICE_DB_PORT}
+      JWT_SECRET: ${BOOKING_SERVICE_JWT_SECRET}
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${BOOKING_SERVICE_REDIS_PASSWORD}
+      PORT: ${PORT_BOOKING_SERVICE}
+      PAYMENT_SERVICE_API_URL: ${PAYMENT_SERVICE_API_URL}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq_broker:5672/
+    volumes:
+      - ./scripts/wait-for-it.sh:/usr/local/bin/wait-for-it.sh
+    command: /usr/local/bin/wait-for-it.sh mysql 3306 -- /usr/local/bin/wait-for-it.sh rabbitmq_broker 5672 -- ./booking-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq: 
+        condition: service_healthy
+    networks:
+      - app_network
+
+  payment-service:
+    build:
+      context: ./backend/payment-service
+      dockerfile: Dockerfile
+    container_name: payment_service
+    ports:
+      - "${PORT_PAYMENT_SERVICE}:${PORT_PAYMENT_SERVICE}"
+    environment:
+      DB_HOST: mysql
+      DB_USER: ${PAYMENT_SERVICE_DB_USER}
+      DB_PASSWORD: ${PAYMENT_SERVICE_DB_PASSWORD}
+      DB_NAME: ${PAYMENT_SERVICE_DB_NAME}
+      DB_PORT: ${PAYMENT_SERVICE_DB_PORT}
+      JWT_SECRET: ${PAYMENT_SERVICE_JWT_SECRET}
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${PAYMENT_SERVICE_REDIS_PASSWORD}
+      PORT: ${PORT_PAYMENT_SERVICE}
+      BOOKING_SERVICE_API_URL: ${BOOKING_SERVICE_API_URL}
+    volumes:
+      - ./scripts/wait-for-it.sh:/usr/local/bin/wait-for-it.sh
+    command: /usr/local/bin/wait-for-it.sh mysql 3306 -- ./payment-service 
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      booking-service:
+        condition: service_started
+    networks:
+      - app_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend_app
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_BASE_URL: http://localhost:${PORT_USER_SERVICE}/api/v1
+      WDS_SOCKET_HOST: 0.0.0.0
+      WDS_SOCKET_PORT: 3000
+    depends_on:
+      user-service:
+        condition: service_started
+      booking-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+    networks:
+      - app_network
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  app_network:
+    driver: bridge
