@@ -54,9 +54,9 @@ This system has three main parts (microservices):
 
 4.  **Access the Application**:
     * Frontend: Open your web browser and go to `http://localhost:3000`
-    * Swagger UI (User Service): `http://localhost:8080/api/v1/users/swagger/index.html`
-    * Swagger UI (Booking Service): `http://localhost:8081/api/v1/swagger/index.html`
-    * Swagger UI (Payment Service): `http://localhost:8082/api/v1/swagger/index.html`
+    * Swagger UI (User Service): `http://localhost:8080/swagger/index.html`
+    * Swagger UI (Booking Service): `http://localhost:8081/swagger/index.html`
+    * Swagger UI (Payment Service): `http://localhost:8082/swagger/index.html`
     * RabbitMQ Management UI: `http://localhost:15672` (Login with `guest`/`guest`)
 
 ## First Time Login
