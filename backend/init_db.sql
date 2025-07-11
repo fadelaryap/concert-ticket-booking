@@ -52,7 +52,7 @@ INSERT IGNORE INTO `concerts` (`id`, `name`, `artist`, `date`, `venue`, `total_s
 
 
 USE booking_db;
-CREATE TABLE IF NOT EXISTS `ticket_classes` ( -- <-- PASTIKAN TABEL INI ADA!
+CREATE TABLE IF NOT EXISTS `ticket_classes` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `created_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) DEFAULT NULL,
@@ -75,36 +75,36 @@ INSERT IGNORE INTO `ticket_classes` (`id`, `concert_id`, `name`, `price`, `total
 
 
 USE booking_db;
-CREATE TABLE IF NOT EXISTS `seats` ( -- <-- PASTIKAN TABEL INI SUDAH DIUBAH!
+CREATE TABLE IF NOT EXISTS `seats` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `created_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     `concert_id` bigint unsigned NOT NULL,
-    `ticket_class_id` bigint unsigned NOT NULL, -- <-- PASTIKAN KOLOM INI ADA!
+    `ticket_class_id` bigint unsigned NOT NULL,
     `seat_number` varchar(255) NOT NULL,
     `status` varchar(255) NOT NULL DEFAULT 'available',
     `user_id` bigint unsigned DEFAULT NULL,
-    `booking_id` varchar(36) DEFAULT NULL, -- Changed to varchar(36)
+    `booking_id` varchar(36) DEFAULT NULL,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `idx_seat_number_per_class_per_concert` (`concert_id`, `ticket_class_id`, `seat_number`), -- Perhatikan unique key
+    UNIQUE KEY `idx_seat_number_per_class_per_concert` (`concert_id`, `ticket_class_id`, `seat_number`),
     KEY `idx_seats_deleted_at` (`deleted_at`),
     KEY `idx_seats_concert_id` (`concert_id`),
-    KEY `idx_seats_ticket_class_id` (`ticket_class_id`), -- <-- PASTIKAN INDEX INI ADA!
+    KEY `idx_seats_ticket_class_id` (`ticket_class_id`),
     KEY `idx_seats_status` (`status`),
     CONSTRAINT `fk_seats_concert` FOREIGN KEY (`concert_id`) REFERENCES `concerts` (`id`) ON DELETE CASCADE,
-    CONSTRAINT `fk_seats_ticket_class` FOREIGN KEY (`ticket_class_id`) REFERENCES `ticket_classes` (`id`) ON DELETE CASCADE -- <-- PASTIKAN CONSTRAINT INI ADA!
+    CONSTRAINT `fk_seats_ticket_class` FOREIGN KEY (`ticket_class_id`) REFERENCES `ticket_classes` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-USE booking_db; -- Pastikan USE lagi jika file sebelumnya tidak ada
+USE booking_db;
 CREATE TABLE IF NOT EXISTS `bookings` (
-    `id` varchar(36) NOT NULL, -- Changed to varchar(36) for UUID
+    `id` varchar(36) NOT NULL,
     `created_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     `user_id` bigint unsigned NOT NULL,
     `concert_id` bigint unsigned NOT NULL,
-    `seat_ids` text NOT NULL, -- Storing as comma-separated string for simplicity. For complex needs, use JSON array type if DB supports or a join table.
+    `seat_ids` text NOT NULL,
     `total_price` decimal(10,2) NOT NULL,
     `status` varchar(255) NOT NULL DEFAULT 'pending',
     `payment_id` bigint unsigned DEFAULT NULL,
@@ -117,9 +117,9 @@ CREATE TABLE IF NOT EXISTS `bookings` (
     CONSTRAINT `fk_bookings_concert` FOREIGN KEY (`concert_id`) REFERENCES `concerts` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-USE booking_db; -- Pastikan USE lagi
+USE booking_db; 
 CREATE TABLE IF NOT EXISTS `booking_seats` (
-    `booking_id` varchar(36) NOT NULL, -- Changed to varchar(36)
+    `booking_id` varchar(36) NOT NULL, 
     `seat_id` bigint unsigned NOT NULL,
     PRIMARY KEY (`booking_id`, `seat_id`),
     KEY `idx_booking_seats_booking_id` (`booking_id`),
@@ -135,17 +135,17 @@ CREATE TABLE IF NOT EXISTS `payments` (
     `created_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
-    `booking_id` varchar(36) NOT NULL, -- Changed to varchar(36)
+    `booking_id` varchar(36) NOT NULL,
     `amount` decimal(10,2) NOT NULL,
     `payment_method` varchar(255) NOT NULL,
     `transaction_id` varchar(255) DEFAULT NULL,
-    `status` varchar(255) NOT NULL DEFAULT 'pending', -- pending, completed, failed, refunded
+    `status` varchar(255) NOT NULL DEFAULT 'pending', 
     `payment_gateway_response` text,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `idx_transaction_id` (`transaction_id`), -- Transaction ID from gateway should be unique
+    UNIQUE KEY `idx_transaction_id` (`transaction_id`), 
     KEY `idx_payments_deleted_at` (`deleted_at`),
-    KEY `idx_payments_booking_id` (`booking_id`), -- Index for quickly finding payments by booking ID
-    KEY `idx_payments_status` (`status`) -- Index for filtering by status
+    KEY `idx_payments_booking_id` (`booking_id`),
+    KEY `idx_payments_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
@@ -155,11 +155,11 @@ CREATE TABLE IF NOT EXISTS `buyers` (
     `created_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
-    `booking_id` varchar(36) NOT NULL, -- Changed to varchar(36) for UUID
+    `booking_id` varchar(36) NOT NULL,
     `full_name` varchar(255) NOT NULL,
     `phone_number` varchar(255) NOT NULL,
     `email` varchar(255) NOT NULL,
-    `ktp_number` varchar(255) NOT NULL UNIQUE, -- KTP number unique for a buyer
+    `ktp_number` varchar(255) NOT NULL UNIQUE,
     PRIMARY KEY (`id`),
     KEY `idx_buyers_deleted_at` (`deleted_at`),
     KEY `idx_buyers_booking_id` (`booking_id`),
@@ -172,9 +172,9 @@ CREATE TABLE IF NOT EXISTS `ticket_holders` (
     `created_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
-    `booking_id` varchar(36) NOT NULL, -- Changed to varchar(36) for UUID
+    `booking_id` varchar(36) NOT NULL,
     `full_name` varchar(255) NOT NULL,
-    `ktp_number` varchar(255) NOT NULL UNIQUE, -- KTP number unique for a ticket holder
+    `ktp_number` varchar(255) NOT NULL UNIQUE,
     PRIMARY KEY (`id`),
     KEY `idx_ticket_holders_deleted_at` (`deleted_at`),
     KEY `idx_ticket_holders_booking_id` (`booking_id`),
